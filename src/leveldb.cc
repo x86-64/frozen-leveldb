@@ -71,3 +71,19 @@ ssize_t ldb_delete (ldb *db, ldb_slice *key){
 	return (status.ok()) ? 0 : -EFAULT;
 }
 
+ssize_t ldb_enum   (ldb *db, ldb_callback callback, void *userdata){
+	std::string            value;
+	ldb_slice              value_slice;
+	leveldb::Iterator*     it                = db->db->NewIterator(leveldb::ReadOptions());
+	
+	for (it->SeekToFirst(); it->Valid(); it->Next()){
+		value            = it->key().ToString();
+		value_slice.data = value.data();
+		value_slice.size = value.size();
+		
+		if(callback(userdata, &value_slice) < 0)
+			break;
+	}
+	delete it;
+}
+

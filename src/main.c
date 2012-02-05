@@ -39,6 +39,7 @@ typedef struct leveldb_ctx {
 	machine_t             *machine;
 	request_t             *request;
 	ssize_t                ret;
+	hashkey_t              hashkey;
 } leveldb_ctx;
 
 static int leveldb_init(machine_t *machine){ // {{{
@@ -92,15 +93,13 @@ static int leveldb_configure(machine_t *machine, config_t *config){ // {{{
 	return 0;
 } // }}}
 
-static void    leveldb_get_callback(leveldb_ctx *ctx, ldb_slice *value){ // {{{
-	leveldb_userdata      *userdata          = (leveldb_userdata *)ctx->machine->userdata;
-	
+static ssize_t leveldb_callback(leveldb_ctx *ctx, ldb_slice *value){ // {{{
 	request_t r_next[] = {
-		{ userdata->value, DATA_RAW(value->data, value->size) },
+		{ ctx->hashkey, DATA_RAW(value->data, value->size) },
 		hash_inline(ctx->request),
 		hash_end
 	};
-	ctx->ret = machine_pass(ctx->machine, r_next);
+	return (ctx->ret = machine_query(ctx->machine, r_next));
 } // }}}
 static ssize_t get_slice(data_t *data, ldb_slice *slice){ // {{{
 	ssize_t                ret               = 0;
@@ -140,7 +139,6 @@ static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 	action_t               action;
 	ldb_slice              key;
 	ldb_slice              value;
-	leveldb_ctx            ctx               = { machine, request, 0 };
 	leveldb_userdata      *userdata          = (leveldb_userdata *)machine->userdata;
 	
 	hash_data_get(ret, TYPE_ACTIONT, action, request, HK(action));
@@ -152,10 +150,11 @@ static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 			if( (ret = get_slice(hash_data_find(request, userdata->key), &key)) < 0)
 				return ret;
 			
-			if(ldb_get(userdata->db, &key, (ldb_callback)&leveldb_get_callback, &ctx) < 0)
+			leveldb_ctx            ctx_get           = { machine->cnext, request, 0, userdata->value };
+			if(ldb_get(userdata->db, &key, (ldb_callback)&leveldb_callback, &ctx_get) < 0)
 				return error("leveldb_get error");
 			
-			return ctx.ret;
+			return ctx_get.ret;
 		
 		case ACTION_WRITE:
 			if(
@@ -176,6 +175,20 @@ static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 				return error("leveldb_delete error");
 			
 			break;
+		
+		case ACTION_ENUM:;
+			machine_t             *shop;
+
+			hash_data_get(ret, TYPE_MACHINET, shop, request, HK(shop));
+			if(ret != 0)
+				return -EINVAL;
+			
+			leveldb_ctx            ctx_enum          = { shop, request, 0, userdata->key };
+			if(ldb_enum(userdata->db, (ldb_callback)&leveldb_callback, &ctx_enum) < 0)
+				return error("leveldb_enum error");
+			
+			return ctx_enum.ret;
+
 		default:
 			return -ENOSYS;
 	};

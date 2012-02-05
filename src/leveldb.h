@@ -15,7 +15,7 @@ typedef struct ldb        ldb;
 typedef struct ldb_slice  ldb_slice;
 typedef enum   ldb_flags  ldb_flags;
 
-typedef void (*ldb_callback)(void *userdata, ldb_slice *value);
+typedef ssize_t (*ldb_callback)(void *userdata, ldb_slice *value);
 
 struct ldb_slice {
 	const char             *data;
@@ -28,6 +28,7 @@ void    ldb_close  (ldb *db);
 ssize_t ldb_get    (ldb *db, ldb_slice *key, ldb_callback callback, void *userdata);
 ssize_t ldb_set    (ldb *db, ldb_slice *key, ldb_slice *value);
 ssize_t ldb_delete (ldb *db, ldb_slice *key);
+ssize_t ldb_enum   (ldb *db, ldb_callback callback, void *userdata);
 
 #ifdef __cplusplus
 }
