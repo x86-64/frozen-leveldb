@@ -109,8 +109,8 @@ static ssize_t get_slice(data_t *data, ldb_slice *slice){ // {{{
 		return -EINVAL;
 	
 	// direct pointers
-	fastcall_physicallen r_len = { { 3, ACTION_LOGICALLEN } };
 	fastcall_getdataptr  r_ptr = { { 3, ACTION_GETDATAPTR } };
+	fastcall_length      r_len = { { 4, ACTION_LENGTH }, 0, FORMAT(clean) };
 	if( data_query(data, &r_len) == 0 && data_query(data, &r_ptr) == 0 && r_ptr.ptr != NULL){
 		slice->data = r_ptr.ptr;
 		slice->size = r_len.length;
