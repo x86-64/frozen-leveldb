@@ -1,6 +1,8 @@
 #include <libfrozen.h>
 #include <leveldb.h>
 
+#include <errors_list.c>
+
 /**
  * @ingroup machine
  * @addtogroup mod_machine_leveldb module/leveldb
@@ -21,8 +23,6 @@
  * }
  * @endcode
  */
-
-#define EMODULE 104
 
 #define HK_VALUE_create_only 55662
 #define HK_VALUE_compress    22797
@@ -207,6 +207,7 @@ static machine_t c_leveldb_proto = {
 };
 
 int main(void){
+	errors_register(&errs_list, &emodule);
 	class_register(&c_leveldb_proto);
 	return 0;
 }

@@ -68,7 +68,7 @@ am__base_list = \
 am__installdirs = "$(DESTDIR)$(modulesdir)"
 LTLIBRARIES = $(modules_LTLIBRARIES)
 module_c_leveldb_la_LIBADD =
-am_module_c_leveldb_la_OBJECTS = module_c_leveldb_la-main.lo \
+am_module_c_leveldb_la_OBJECTS = module_c_leveldb_la-main_leveldb.lo \
 	leveldb.lo
 module_c_leveldb_la_OBJECTS = $(am_module_c_leveldb_la_OBJECTS)
 module_c_leveldb_la_LINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) \
@@ -221,9 +221,10 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 modules_LTLIBRARIES = module_c_leveldb.la
-module_c_leveldb_la_CFLAGS = -I@includedir@/frozen/
+module_c_leveldb_la_CFLAGS = -I@includedir@/frozen/ -DFROZEN_MODULE
 module_c_leveldb_la_LDFLAGS = -module -avoid-version -shared -lleveldb
-module_c_leveldb_la_SOURCES = main.c leveldb.cc leveldb.h
+module_c_leveldb_la_SOURCES = main_leveldb.c leveldb.cc leveldb.h
+EXTRA_DIST = errors_list.c
 all: all-am
 
 .SUFFIXES:
@@ -299,7 +300,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/leveldb.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/module_c_leveldb_la-main.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/module_c_leveldb_la-main_leveldb.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -322,12 +323,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
 
-module_c_leveldb_la-main.lo: main.c
-@am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(module_c_leveldb_la_CFLAGS) $(CFLAGS) -MT module_c_leveldb_la-main.lo -MD -MP -MF $(DEPDIR)/module_c_leveldb_la-main.Tpo -c -o module_c_leveldb_la-main.lo `test -f 'main.c' || echo '$(srcdir)/'`main.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/module_c_leveldb_la-main.Tpo $(DEPDIR)/module_c_leveldb_la-main.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='main.c' object='module_c_leveldb_la-main.lo' libtool=yes @AMDEPBACKSLASH@
+module_c_leveldb_la-main_leveldb.lo: main_leveldb.c
+@am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(module_c_leveldb_la_CFLAGS) $(CFLAGS) -MT module_c_leveldb_la-main_leveldb.lo -MD -MP -MF $(DEPDIR)/module_c_leveldb_la-main_leveldb.Tpo -c -o module_c_leveldb_la-main_leveldb.lo `test -f 'main_leveldb.c' || echo '$(srcdir)/'`main_leveldb.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/module_c_leveldb_la-main_leveldb.Tpo $(DEPDIR)/module_c_leveldb_la-main_leveldb.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='main_leveldb.c' object='module_c_leveldb_la-main_leveldb.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(module_c_leveldb_la_CFLAGS) $(CFLAGS) -c -o module_c_leveldb_la-main.lo `test -f 'main.c' || echo '$(srcdir)/'`main.c
+@am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(module_c_leveldb_la_CFLAGS) $(CFLAGS) -c -o module_c_leveldb_la-main_leveldb.lo `test -f 'main_leveldb.c' || echo '$(srcdir)/'`main_leveldb.c
 
 .cc.o:
 @am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

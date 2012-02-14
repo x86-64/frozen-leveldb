@@ -18,6 +18,8 @@ AM_CONDITIONAL([HAVE_FROZEN], [test "$FROZEN" = 1])
 modulesdir=${libexecdir}/frozen/
 AC_SUBST(modulesdir)
 
+esyscmd(./build/build_errors.pl)
+
 AC_ARG_ENABLE(debug,  AS_HELP_STRING([--enable-debug],  [compile with debug functions]))
 if test "x$enable_debug" == "xyes"; then
         AC_DEFINE([DEBUG], [1], [Defined if debug functions requested])
