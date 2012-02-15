@@ -116,42 +116,12 @@ static ssize_t leveldb_enum_callback(leveldb_enum_ctx *ctx, ldb_slice *value){ /
 	fastcall_push r_push = { { 3, ACTION_PUSH }, &d_copy };
 	return (ctx->ret = data_query(ctx->dest_data, &r_push));
 } // }}}
-static ssize_t get_slice(data_t *data, ldb_slice *slice){ // {{{
-	ssize_t                ret               = 0;
-	data_t                 raw_data          = { TYPE_RAWT, NULL };
-	
-	if(data == NULL)
-		return -EINVAL;
-	
-	// direct pointers
-	fastcall_getdataptr  r_ptr = { { 3, ACTION_GETDATAPTR } };
-	fastcall_length      r_len = { { 4, ACTION_LENGTH }, 0, FORMAT(clean) };
-	if( data_query(data, &r_len) == 0 && data_query(data, &r_ptr) == 0 && r_ptr.ptr != NULL){
-		slice->data = r_ptr.ptr;
-		slice->size = r_len.length;
-		return 0;
-	}
-	
-	// strange types
-	fastcall_transfer r_transfer = { { 4, ACTION_TRANSFER }, &raw_data };
-	if(data_query(data, &r_transfer) < 0)
-		return -EINVAL;
-	
-	if( data_query(data, &r_len) == 0 && data_query(data, &r_ptr) == 0 && r_ptr.ptr != NULL){
-		slice->data = r_ptr.ptr;
-		slice->size = r_len.length;
-	}else{
-		ret = -EFAULT;
-	}
-	
-	fastcall_free r_free = { { 2, ACTION_FREE } };
-	data_query(&raw_data, &r_free);
-	return ret;
-} // }}}
 
 static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 	ssize_t                ret;
 	action_t               action;
+	data_t                 free_key;
+	data_t                 free_value;
 	ldb_slice              key;
 	ldb_slice              value;
 	leveldb_userdata      *userdata          = (leveldb_userdata *)machine->userdata;
@@ -162,31 +132,49 @@ static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 	
 	switch(action){
 		case ACTION_READ:
-			if( (ret = get_slice(hash_data_find(request, userdata->key), &key)) < 0)
+			if( (ret = data_get_continious(hash_data_find(request, userdata->key), &free_key, (void **)&key.data, &key.size)) < 0){
+				data_free(&free_key);
 				return ret;
+			}
 			
 			leveldb_get_ctx        ctx_get           = { machine->cnext, request, 0, userdata->value };
-			if(ldb_get(userdata->db, &key, (ldb_callback)&leveldb_get_callback, &ctx_get) < 0)
-				return error("leveldb_get error");
+			if(ldb_get(userdata->db, &key, (ldb_callback)&leveldb_get_callback, &ctx_get) < 0){
+				ret = error("leveldb_get error");
+			}else{
+				ret = ctx_get.ret;
+			}
 			
-			return ctx_get.ret;
+			data_free(&free_key);
+			return ret;
 		
 		case ACTION_WRITE:
-			if(
-				((ret = get_slice( hash_data_find(request, userdata->key),   &key))   < 0) ||
-				((ret = get_slice( hash_data_find(request, userdata->value), &value)) < 0)
-			)
+			if( (ret = data_get_continious(hash_data_find(request, userdata->key),   &free_key,   (void **)&key.data,   &key.size)) < 0){
+				data_free(&free_key);
 				return ret;
+			}
+			if( (ret = data_get_continious(hash_data_find(request, userdata->value), &free_value, (void **)&value.data, &value.size)) < 0){
+				data_free(&free_value);
+				return ret;
+			}
 			
-			if(ldb_set(userdata->db, &key, &value) < 0)
+			ret = ldb_set(userdata->db, &key, &value);
+			
+			data_free(&free_key);
+			data_free(&free_value);
+			
+			if(ret < 0)
 				return error("leveldb_set error");
 			
 			break;
 		case ACTION_DELETE:
-			if( (ret = get_slice(hash_data_find(request, userdata->key), &key)) < 0)
+			if( (ret = data_get_continious(hash_data_find(request, userdata->key), &free_key, (void **)&key.data, &key.size)) < 0)
 				return ret;
 			
-			if(ldb_delete(userdata->db, &key) < 0)
+			ret = ldb_delete(userdata->db, &key);
+			
+			data_free(&free_key);
+			
+			if(ret < 0)
 				return error("leveldb_delete error");
 			
 			break;
