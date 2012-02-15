@@ -35,12 +35,16 @@ typedef struct leveldb_userdata {
 	hashkey_t              value;
 } leveldb_userdata;
 
-typedef struct leveldb_ctx {
+typedef struct leveldb_get_ctx {
 	machine_t             *machine;
 	request_t             *request;
 	ssize_t                ret;
 	hashkey_t              hashkey;
-} leveldb_ctx;
+} leveldb_get_ctx;
+typedef struct leveldb_enum_ctx {
+	data_t                *dest_data;
+	ssize_t                ret;
+} leveldb_enum_ctx;
 
 static int leveldb_init(machine_t *machine){ // {{{
 	leveldb_userdata         *userdata;
@@ -93,13 +97,24 @@ static int leveldb_configure(machine_t *machine, config_t *config){ // {{{
 	return 0;
 } // }}}
 
-static ssize_t leveldb_callback(leveldb_ctx *ctx, ldb_slice *value){ // {{{
+static ssize_t leveldb_get_callback(leveldb_get_ctx *ctx, ldb_slice *value){ // {{{
 	request_t r_next[] = {
 		{ ctx->hashkey, DATA_RAW(value->data, value->size) },
 		hash_inline(ctx->request),
 		hash_end
 	};
 	return (ctx->ret = machine_query(ctx->machine, r_next));
+} // }}}
+static ssize_t leveldb_enum_callback(leveldb_enum_ctx *ctx, ldb_slice *value){ // {{{
+	data_t                 d_value           = DATA_RAW(value->data, value->size);
+	data_t                 d_copy;
+	
+	fastcall_copy r_copy = { { 3, ACTION_COPY }, &d_copy };
+	if( (ctx->ret = data_query(&d_value, &r_copy)) < 0)
+		return ctx->ret;
+	
+	fastcall_push r_push = { { 3, ACTION_PUSH }, &d_copy };
+	return (ctx->ret = data_query(ctx->dest_data, &r_push));
 } // }}}
 static ssize_t get_slice(data_t *data, ldb_slice *slice){ // {{{
 	ssize_t                ret               = 0;
@@ -150,8 +165,8 @@ static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 			if( (ret = get_slice(hash_data_find(request, userdata->key), &key)) < 0)
 				return ret;
 			
-			leveldb_ctx            ctx_get           = { machine->cnext, request, 0, userdata->value };
-			if(ldb_get(userdata->db, &key, (ldb_callback)&leveldb_callback, &ctx_get) < 0)
+			leveldb_get_ctx        ctx_get           = { machine->cnext, request, 0, userdata->value };
+			if(ldb_get(userdata->db, &key, (ldb_callback)&leveldb_get_callback, &ctx_get) < 0)
 				return error("leveldb_get error");
 			
 			return ctx_get.ret;
@@ -177,14 +192,13 @@ static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 			break;
 		
 		case ACTION_ENUM:;
-			machine_t             *shop;
-
-			hash_data_get(ret, TYPE_MACHINET, shop, request, HK(shop));
-			if(ret != 0)
+			data_t             *dest_data;
+			
+			if( (dest_data = hash_data_find(request, HK(data))) == NULL)
 				return -EINVAL;
 			
-			leveldb_ctx            ctx_enum          = { shop, request, 0, userdata->key };
-			if(ldb_enum(userdata->db, (ldb_callback)&leveldb_callback, &ctx_enum) < 0)
+			leveldb_enum_ctx       ctx_enum          = { dest_data, 0 };
+			if(ldb_enum(userdata->db, (ldb_callback)&leveldb_enum_callback, &ctx_enum) < 0)
 				return error("leveldb_enum error");
 			
 			return ctx_enum.ret;
@@ -207,7 +221,7 @@ static machine_t c_leveldb_proto = {
 };
 
 int main(void){
-	errors_register(&errs_list, &emodule);
+	errors_register((err_item *)&errs_list, &emodule);
 	class_register(&c_leveldb_proto);
 	return 0;
 }
