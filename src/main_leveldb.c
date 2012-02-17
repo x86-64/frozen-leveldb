@@ -74,26 +74,29 @@ static int leveldb_configure(machine_t *machine, config_t *config){ // {{{
 	char                  *c_path            = NULL;
 	leveldb_userdata      *userdata          = (leveldb_userdata *)machine->userdata;
 	
-	hash_data_get(ret, TYPE_STRINGT,  c_path,          config, HK(path));
 	hash_data_get(ret, TYPE_HASHKEYT, userdata->key,   config, HK(key));
 	hash_data_get(ret, TYPE_HASHKEYT, userdata->value, config, HK(value));
 	hash_data_get(ret, TYPE_UINTT,    c_create,        config, HK(create));
 	hash_data_get(ret, TYPE_UINTT,    c_error,         config, HK(create_only));
 	hash_data_get(ret, TYPE_UINTT,    c_compress,      config, HK(compress));
 	hash_data_get(ret, TYPE_UINTT,    c_paranoid,      config, HK(paranoid));
-
+	
+	hash_data_convert(ret, TYPE_STRINGT,  c_path,      config, HK(path));
+	if(ret != 0 || c_path == NULL)
+		return error("invalid path specified");
+	
 	flags |= (c_create   != 0) ? CREATE_IF_MISSING : 0;
 	flags |= (c_error    != 0) ? ERROR_IF_EXIST : 0;
 	flags |= (c_compress != 0) ? 0 : NO_COMPRESSION;
 	flags |= (c_paranoid != 0) ? PARANOID : 0;
 	
-	if(c_path == NULL)
-		return error("invalid path specified");
-	
-	if(ldb_open(&userdata->db, c_path, flags) < 0)
+	if(ldb_open(&userdata->db, c_path, flags) < 0){
+		free(c_path);
 		return error("leveldb init failed");
+	}
 	
 	userdata->inited = 1;
+	free(c_path);
 	return 0;
 } // }}}
 
@@ -192,7 +195,10 @@ static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 			fastcall_push r_push = { { 3, ACTION_PUSH }, NULL };
 			data_query(dest_data, &r_push);
 			
-			return ctx_enum.ret;
+			if(ctx_enum.ret < 0)
+				return ctx_enum.ret;
+			
+			break;
 
 		default:
 			return -ENOSYS;
