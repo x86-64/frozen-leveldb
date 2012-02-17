@@ -188,6 +188,9 @@ static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 			leveldb_enum_ctx       ctx_enum          = { dest_data, 0 };
 			if(ldb_enum(userdata->db, (ldb_callback)&leveldb_enum_callback, &ctx_enum) < 0)
 				return error("leveldb_enum error");
+	
+			fastcall_push r_push = { { 3, ACTION_PUSH }, NULL };
+			data_query(dest_data, &r_push);
 			
 			return ctx_enum.ret;
 
