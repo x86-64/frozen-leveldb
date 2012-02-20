@@ -46,7 +46,7 @@ typedef struct leveldb_enum_ctx {
 	ssize_t                ret;
 } leveldb_enum_ctx;
 
-static int leveldb_init(machine_t *machine){ // {{{
+static ssize_t leveldb_init(machine_t *machine){ // {{{
 	leveldb_userdata         *userdata;
 
 	if((userdata = machine->userdata = calloc(1, sizeof(leveldb_userdata))) == NULL)
@@ -56,7 +56,7 @@ static int leveldb_init(machine_t *machine){ // {{{
 	userdata->value = HK(value);
 	return 0;
 } // }}}
-static int leveldb_destroy(machine_t *machine){ // {{{
+static ssize_t leveldb_destroy(machine_t *machine){ // {{{
 	leveldb_userdata     *userdata          = (leveldb_userdata *)machine->userdata;
 	
 	if(userdata->inited != 0)
@@ -64,7 +64,7 @@ static int leveldb_destroy(machine_t *machine){ // {{{
 	free(userdata);
 	return 0;
 } // }}}
-static int leveldb_configure(machine_t *machine, config_t *config){ // {{{
+static ssize_t leveldb_configure(machine_t *machine, config_t *config){ // {{{
 	ssize_t                ret;
 	uintmax_t              flags             = 0;
 	uintmax_t              c_create          = 1;
