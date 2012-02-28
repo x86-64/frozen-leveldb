@@ -101,12 +101,21 @@ static ssize_t leveldb_configure(machine_t *machine, config_t *config){ // {{{
 } // }}}
 
 static ssize_t leveldb_get_callback(leveldb_get_ctx *ctx, ldb_slice *value){ // {{{
-	request_t r_next[] = {
-		{ ctx->hashkey, DATA_RAW(value->data, value->size) },
-		hash_inline(ctx->request),
-		hash_end
-	};
-	return (ctx->ret = machine_query(ctx->machine, r_next));
+	if(value == NULL){ // not found
+		request_t r_next[] = {
+			{ ctx->hashkey, DATA_VOID },
+			hash_inline(ctx->request),
+			hash_end
+		};
+		return (ctx->ret = machine_pass(ctx->machine, r_next));
+	}else{
+		request_t r_next[] = {
+			{ ctx->hashkey, DATA_RAW(value->data, value->size) },
+			hash_inline(ctx->request),
+			hash_end
+		};
+		return (ctx->ret = machine_pass(ctx->machine, r_next));
+	}
 } // }}}
 static ssize_t leveldb_enum_callback(leveldb_enum_ctx *ctx, ldb_slice *value){ // {{{
 	data_t                 d_value           = DATA_RAW(value->data, value->size);
@@ -140,11 +149,15 @@ static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 				return ret;
 			}
 			
-			leveldb_get_ctx        ctx_get           = { machine->cnext, request, 0, userdata->value };
-			if(ldb_get(userdata->db, &key, (ldb_callback)&leveldb_get_callback, &ctx_get) < 0){
-				ret = error("leveldb_get error");
-			}else{
-				ret = ctx_get.ret;
+			leveldb_get_ctx        ctx_get           = { machine, request, 0, userdata->value };
+			switch(ldb_get(userdata->db, &key, (ldb_callback)&leveldb_get_callback, &ctx_get)){
+				case 0:
+				case -ENOENT:
+					ret = ctx_get.ret;
+					break;
+				default:
+					ret = error("leveldb_get error");
+					break;
 			}
 			
 			data_free(&free_key);

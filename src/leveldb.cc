@@ -42,6 +42,10 @@ ssize_t ldb_get    (ldb *db, ldb_slice *key, ldb_callback callback, void *userda
 		leveldb::Slice(key->data, key->size),
 		&value
 	);
+	if(status.IsNotFound()){
+		callback(userdata, NULL);
+		return -ENOENT;
+	}
 	if(status.ok()){
 		value_slice.data = value.data();
 		value_slice.size = value.size();
@@ -68,6 +72,9 @@ ssize_t ldb_delete (ldb *db, ldb_slice *key){
 		leveldb::WriteOptions(),
 		leveldb::Slice(key->data, key->size)
 	);
+	if(status.IsNotFound()){
+		return -ENOENT;
+	}
 	return (status.ok()) ? 0 : -EFAULT;
 }
 

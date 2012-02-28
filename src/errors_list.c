@@ -1,10 +1,10 @@
 
 static err_item errs_list[] = {
- { -193, "src/main_leveldb.c: leveldb_enum error" },
- { -181, "src/main_leveldb.c: leveldb_delete error" },
- { -169, "src/main_leveldb.c: leveldb_set error" },
- { -145, "src/main_leveldb.c: leveldb_get error" },
- { -134, "src/main_leveldb.c: no action specified" },
+ { -206, "src/main_leveldb.c: leveldb_enum error" },
+ { -194, "src/main_leveldb.c: leveldb_delete error" },
+ { -182, "src/main_leveldb.c: leveldb_set error" },
+ { -159, "src/main_leveldb.c: leveldb_get error" },
+ { -143, "src/main_leveldb.c: no action specified" },
  { -95, "src/main_leveldb.c: leveldb init failed" },
  { -86, "src/main_leveldb.c: invalid path specified" },
  { -53, "src/main_leveldb.c: calloc failed" },
