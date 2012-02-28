@@ -20,6 +20,25 @@
  * @code
  * {
  *              class                   = "modules/leveldb",
+ *              path                    = "somepath/",            // path to directory with leveldb db
+ *              key                     = (hashkey_t)"input",     // hashkey for key, default "key"
+ *              value                   = (hashkey_t)"output",    // hashkey for value, default "value"
+ *              create                  = (uint_t)"1",            // create db if not exist, default 1
+ *              create_only             = (uint_t)"1",            // emit error if db already exist, default 0
+ *              compress                = (uint_t)"1",            // compress data, default 1
+ *              paranoid                = (uint_t)"1",            // paranoid checks (see leveldb man), default 0
+ *              
+ *              // Value type management modes, pick any
+ *
+ *              // Mode 1: all values saved to db in specified format (DEFAULT)
+ *              value_same              = (uint_t)"1",            // default 1
+ *              value_type              = (datatype_t)"ipv4_t",   // restrict type to this one, default no
+ *              value_format            = (format_t)"packed",     // storage format, default "native"
+ *              
+ *              // Mode 2: value can have any type, type would be saved along with data itself
+ *              //         value data would be stored in "packed" format
+ *              value_any               = (uint_t)"1",            // default 0
+ *              value_format            = (format_t)"packed"      // storage format, default "native"
  * }
  * @endcode
  */
@@ -27,12 +46,26 @@
 #define HK_VALUE_create_only 55662
 #define HK_VALUE_compress    22797
 #define HK_VALUE_paranoid    21369
+#define HK_VALUE_value_type      portable_hash("value_type")
+#define HK_VALUE_value_format    portable_hash("value_format")
+#define HK_VALUE_value_same      portable_hash("value_same")
+#define HK_VALUE_value_any       portable_hash("value_any")
+#define HK_VALUE_value_native    portable_hash("value_native")
+
+typedef enum leveldb_value_mode {
+	VALUE_MODE_SAME_TYPE,
+	VALUE_MODE_ANY_TYPE,
+} leveldb_value_mode;
 
 typedef struct leveldb_userdata {
 	uintmax_t              inited;
 	ldb                   *db;
 	hashkey_t              key;
 	hashkey_t              value;
+	leveldb_value_mode     value_mode;
+	uintmax_t              value_type_restrict;
+	datatype_t             value_type;
+	format_t               value_format;
 } leveldb_userdata;
 
 typedef struct leveldb_get_ctx {
@@ -48,12 +81,16 @@ typedef struct leveldb_enum_ctx {
 
 static ssize_t leveldb_init(machine_t *machine){ // {{{
 	leveldb_userdata         *userdata;
-
+	
 	if((userdata = machine->userdata = calloc(1, sizeof(leveldb_userdata))) == NULL)
 		return error("calloc failed");
 	
-	userdata->key   = HK(key);
-	userdata->value = HK(value);
+	userdata->key                 = HK(key);
+	userdata->value               = HK(value);
+	userdata->value_mode          = VALUE_MODE_SAME_TYPE;
+	userdata->value_type_restrict = 0;
+	userdata->value_type          = TYPE_VOIDT;
+	userdata->value_format        = FORMAT(native);
 	return 0;
 } // }}}
 static ssize_t leveldb_destroy(machine_t *machine){ // {{{
@@ -66,24 +103,44 @@ static ssize_t leveldb_destroy(machine_t *machine){ // {{{
 } // }}}
 static ssize_t leveldb_configure(machine_t *machine, config_t *config){ // {{{
 	ssize_t                ret;
+	uintmax_t              t;
 	uintmax_t              flags             = 0;
 	uintmax_t              c_create          = 1;
 	uintmax_t              c_compress        = 1;
 	uintmax_t              c_error           = 0;
 	uintmax_t              c_paranoid        = 0;
+	uintmax_t              c_value_same      = 0;
+	uintmax_t              c_value_any       = 0;
 	char                  *c_path            = NULL;
 	leveldb_userdata      *userdata          = (leveldb_userdata *)machine->userdata;
 	
-	hash_data_get(ret, TYPE_HASHKEYT, userdata->key,   config, HK(key));
-	hash_data_get(ret, TYPE_HASHKEYT, userdata->value, config, HK(value));
-	hash_data_get(ret, TYPE_UINTT,    c_create,        config, HK(create));
-	hash_data_get(ret, TYPE_UINTT,    c_error,         config, HK(create_only));
-	hash_data_get(ret, TYPE_UINTT,    c_compress,      config, HK(compress));
-	hash_data_get(ret, TYPE_UINTT,    c_paranoid,      config, HK(paranoid));
+	hash_data_get(ret, TYPE_HASHKEYT,  userdata->key,          config, HK(key));
+	hash_data_get(ret, TYPE_HASHKEYT,  userdata->value,        config, HK(value));
+	hash_data_get(ret, TYPE_FORMATT,   userdata->value_format, config, HK(value_format));
+	hash_data_get(ret, TYPE_UINTT,     c_value_same,           config, HK(value_same));
+	hash_data_get(ret, TYPE_UINTT,     c_value_any,            config, HK(value_any));
+	hash_data_get(ret, TYPE_UINTT,     c_create,               config, HK(create));
+	hash_data_get(ret, TYPE_UINTT,     c_error,                config, HK(create_only));
+	hash_data_get(ret, TYPE_UINTT,     c_compress,             config, HK(compress));
+	hash_data_get(ret, TYPE_UINTT,     c_paranoid,             config, HK(paranoid));
 	
-	hash_data_convert(ret, TYPE_STRINGT,  c_path,      config, HK(path));
+	hash_data_get(ret, TYPE_DATATYPET, userdata->value_type,   config, HK(value_type));
+	if(ret == 0){
+		userdata->value_type_restrict = 1;
+	}
+	
+	hash_data_convert(ret, TYPE_STRINGT,  c_path,              config, HK(path));
 	if(ret != 0 || c_path == NULL)
 		return error("invalid path specified");
+	
+	c_value_same   = (c_value_same   > 0) ? 1 : 0;
+	c_value_any    = (c_value_any    > 0) ? 1 : 0;
+	
+	if(c_value_same + c_value_any > 1)
+		return error("leveldb configuration error: wrong management modes configuration");
+	
+	userdata->value_mode = c_value_same   ? VALUE_MODE_SAME_TYPE : userdata->value_mode;
+	userdata->value_mode = c_value_any    ? VALUE_MODE_ANY_TYPE  : userdata->value_mode;
 	
 	flags |= (c_create   != 0) ? CREATE_IF_MISSING : 0;
 	flags |= (c_error    != 0) ? ERROR_IF_EXIST : 0;
@@ -100,29 +157,101 @@ static ssize_t leveldb_configure(machine_t *machine, config_t *config){ // {{{
 	return 0;
 } // }}}
 
+static ssize_t leveldb_value_serialize(leveldb_userdata *userdata, data_t *input, ldb_slice *output, data_t *freeme){ // {{{
+	switch(userdata->value_mode){
+		case VALUE_MODE_SAME_TYPE:
+			return data_make_flat(input,   userdata->value_format, freeme, (void **)&output->data, &output->size);
+			
+		case VALUE_MODE_ANY_TYPE:;
+			data_t           d_data        = DATA_PTR_DATAT(input);
+			
+			return data_make_flat(&d_data, userdata->value_format, freeme, (void **)&output->data, &output->size);
+	}
+} // }}}
+static ssize_t leveldb_value_unserialize(leveldb_userdata *userdata, ldb_slice *input, data_t *output){ // {{{
+	ssize_t                ret;
+	
+	if(input == NULL)
+		return 0;
+	
+	data_t                 d_input    = DATA_RAW(input->data, input->size);
+	
+	switch(userdata->value_mode){
+		case VALUE_MODE_SAME_TYPE:
+			// accept only void_t or same data type
+			
+			if(userdata->value_type_restrict != 0){
+				// restrict type to user-supplied
+				
+				if(output->type == TYPE_VOIDT){                     // void_t can be overridden
+					output->type = userdata->value_type;
+				}else if(output->type != userdata->value_type){     // if types not match - emit error
+					return error("leveldb_value_unserialize wrong output data supplied");
+				}
+			}else{
+				// do not restrict type
+				
+				if(output->type == TYPE_VOIDT && input->size != 0)  // void_t as output and have actual data?
+					return error("leveldb_value_unserialize unknown output datatype: pass output key or set value_type in configuration");
+			}
+			
+			fastcall_convert_from r_same_convert  = { { 4, ACTION_CONVERT_FROM }, &d_input, userdata->value_format };
+			return data_query(output, &r_same_convert);
+			
+		case VALUE_MODE_ANY_TYPE:;
+			data_t                d_data          = DATA_PTR_DATAT(output);
+			
+			fastcall_convert_from r_convert       = { { 4, ACTION_CONVERT_FROM }, &d_input, userdata->value_format };
+			return data_query(&d_data, &r_convert);
+	}
+} // }}}
+
 static ssize_t leveldb_get_callback(leveldb_get_ctx *ctx, ldb_slice *value){ // {{{
-	if(value == NULL){ // not found
+	ssize_t                ret;
+	data_t                *output;
+	uintmax_t              need_free;
+	leveldb_userdata      *userdata          = (leveldb_userdata *)ctx->machine->userdata;
+	
+	if(value == NULL) // not found
+		return (ctx->ret = machine_pass(ctx->machine, ctx->request));
+	
+	if( (output = hash_data_find(ctx->request, ctx->hashkey)) != NULL){
+		// already exist in request
+		
+		need_free = (output->type == TYPE_VOIDT) ? 1 : 0;
+		
+		if( (ctx->ret = leveldb_value_unserialize(userdata, value, output)) < 0)
+			return ctx->ret;
+		
+		ctx->ret = machine_pass(ctx->machine, ctx->request);
+		
+		if(need_free)
+			data_free(output);
+	}else{
+		// assign new
+		
 		request_t r_next[] = {
 			{ ctx->hashkey, DATA_VOID },
 			hash_inline(ctx->request),
 			hash_end
 		};
-		return (ctx->ret = machine_pass(ctx->machine, r_next));
-	}else{
-		request_t r_next[] = {
-			{ ctx->hashkey, DATA_RAW(value->data, value->size) },
-			hash_inline(ctx->request),
-			hash_end
-		};
-		return (ctx->ret = machine_pass(ctx->machine, r_next));
+		output = &r_next[0].data;
+		
+		if( (ctx->ret = leveldb_value_unserialize(userdata, value, output)) < 0)
+			return ctx->ret;
+		
+		ctx->ret = machine_pass(ctx->machine, r_next);
+		
+		data_free(output)
 	}
+	return ctx->ret;
 } // }}}
-static ssize_t leveldb_enum_callback(leveldb_enum_ctx *ctx, ldb_slice *value){ // {{{
-	data_t                 d_value           = DATA_RAW(value->data, value->size);
+static ssize_t leveldb_enum_callback(leveldb_enum_ctx *ctx, ldb_slice *key){ // {{{
+	data_t                 d_key             = DATA_RAW(key->data, key->size);
 	data_t                 d_copy;
 	
 	fastcall_copy r_copy = { { 3, ACTION_COPY }, &d_copy };
-	if( (ctx->ret = data_query(&d_value, &r_copy)) < 0)
+	if( (ctx->ret = data_query(&d_key, &r_copy)) < 0)
 		return ctx->ret;
 	
 	fastcall_push r_push = { { 3, ACTION_PUSH }, &d_copy };
@@ -168,7 +297,12 @@ static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 				data_free(&free_key);
 				return ret;
 			}
-			if( (ret = data_get_continious(hash_data_find(request, userdata->value), &free_value, (void **)&value.data, &value.size)) < 0){
+			if( (ret = leveldb_value_serialize(
+				userdata,
+				hash_data_find(request, userdata->value),
+				&value,
+				&free_value) < 0)
+			){
 				data_free(&free_value);
 				return ret;
 			}
