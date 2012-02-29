@@ -43,15 +43,6 @@
  * @endcode
  */
 
-#define HK_VALUE_create_only 55662
-#define HK_VALUE_compress    22797
-#define HK_VALUE_paranoid    21369
-#define HK_VALUE_value_type      portable_hash("value_type")
-#define HK_VALUE_value_format    portable_hash("value_format")
-#define HK_VALUE_value_same      portable_hash("value_same")
-#define HK_VALUE_value_any       portable_hash("value_any")
-#define HK_VALUE_value_native    portable_hash("value_native")
-
 typedef enum leveldb_value_mode {
 	VALUE_MODE_SAME_TYPE,
 	VALUE_MODE_ANY_TYPE,
@@ -85,8 +76,8 @@ static ssize_t leveldb_init(machine_t *machine){ // {{{
 	if((userdata = machine->userdata = calloc(1, sizeof(leveldb_userdata))) == NULL)
 		return error("calloc failed");
 	
-	userdata->key                 = HK(key);
-	userdata->value               = HK(value);
+	userdata->key                 = HDK(key);
+	userdata->value               = HDK(value);
 	userdata->value_mode          = VALUE_MODE_SAME_TYPE;
 	userdata->value_type_restrict = 0;
 	userdata->value_type          = TYPE_VOIDT;
@@ -114,22 +105,22 @@ static ssize_t leveldb_configure(machine_t *machine, config_t *config){ // {{{
 	char                  *c_path            = NULL;
 	leveldb_userdata      *userdata          = (leveldb_userdata *)machine->userdata;
 	
-	hash_data_get(ret, TYPE_HASHKEYT,  userdata->key,          config, HK(key));
-	hash_data_get(ret, TYPE_HASHKEYT,  userdata->value,        config, HK(value));
-	hash_data_get(ret, TYPE_FORMATT,   userdata->value_format, config, HK(value_format));
-	hash_data_get(ret, TYPE_UINTT,     c_value_same,           config, HK(value_same));
-	hash_data_get(ret, TYPE_UINTT,     c_value_any,            config, HK(value_any));
-	hash_data_get(ret, TYPE_UINTT,     c_create,               config, HK(create));
-	hash_data_get(ret, TYPE_UINTT,     c_error,                config, HK(create_only));
-	hash_data_get(ret, TYPE_UINTT,     c_compress,             config, HK(compress));
-	hash_data_get(ret, TYPE_UINTT,     c_paranoid,             config, HK(paranoid));
+	hash_data_get(ret, TYPE_HASHKEYT,  userdata->key,          config, HDK(key));
+	hash_data_get(ret, TYPE_HASHKEYT,  userdata->value,        config, HDK(value));
+	hash_data_get(ret, TYPE_FORMATT,   userdata->value_format, config, HDK(value_format));
+	hash_data_get(ret, TYPE_UINTT,     c_value_same,           config, HDK(value_same));
+	hash_data_get(ret, TYPE_UINTT,     c_value_any,            config, HDK(value_any));
+	hash_data_get(ret, TYPE_UINTT,     c_create,               config, HDK(create));
+	hash_data_get(ret, TYPE_UINTT,     c_error,                config, HDK(create_only));
+	hash_data_get(ret, TYPE_UINTT,     c_compress,             config, HDK(compress));
+	hash_data_get(ret, TYPE_UINTT,     c_paranoid,             config, HDK(paranoid));
 	
-	hash_data_get(ret, TYPE_DATATYPET, userdata->value_type,   config, HK(value_type));
+	hash_data_get(ret, TYPE_DATATYPET, userdata->value_type,   config, HDK(value_type));
 	if(ret == 0){
 		userdata->value_type_restrict = 1;
 	}
 	
-	hash_data_convert(ret, TYPE_STRINGT,  c_path,              config, HK(path));
+	hash_data_convert(ret, TYPE_STRINGT,  c_path,              config, HDK(path));
 	if(ret != 0 || c_path == NULL)
 		return error("invalid path specified");
 	
