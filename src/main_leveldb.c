@@ -246,8 +246,8 @@ static ssize_t leveldb_enum_callback(leveldb_enum_ctx *ctx, ldb_slice *key){ // 
 	data_t                 d_key             = DATA_RAW(key->data, key->size);
 	data_t                 d_copy;
 	
-	fastcall_copy r_copy = { { 3, ACTION_COPY }, &d_copy };
-	if( (ctx->ret = data_query(&d_key, &r_copy)) < 0)
+	holder_copy(ctx->ret, &d_copy, &d_key);
+	if(ctx->ret != 0)
 		return ctx->ret;
 	
 	fastcall_push r_push = { { 3, ACTION_PUSH }, &d_copy };
