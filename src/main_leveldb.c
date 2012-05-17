@@ -208,11 +208,9 @@ static ssize_t leveldb_get_callback(leveldb_get_ctx *ctx, ldb_slice *value){ // 
 	
 	if( (output = hash_data_find(ctx->request, ctx->hashkey)) != NULL){
 		// already exist in request
-		
-		fastcall_getdata r_getdata = { { 3, ACTION_GETDATA } };
-		if( (ctx->ret = data_query(output, &r_getdata)) < 0)
+		data_realholder(ctx->ret, output, output);
+		if(ctx->ret < 0)
 			return ctx->ret;
-		output = r_getdata.data;
 		
 		need_free = (output->type == TYPE_VOIDT) ? 1 : 0;
 		
