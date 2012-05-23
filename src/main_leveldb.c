@@ -267,7 +267,7 @@ static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 	
 	switch(action){
 		case ACTION_READ:
-			if( (ret = data_get_continious(hash_data_find(request, userdata->key), &free_key, (void **)&key.data, &key.size)) < 0){
+			if( (ret = data_make_flat(hash_data_find(request, userdata->key),  FORMAT(native), &free_key, (void **)&key.data, &key.size)) < 0){
 				data_free(&free_key);
 				return ret;
 			}
@@ -287,7 +287,7 @@ static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 			return ret;
 		
 		case ACTION_WRITE:
-			if( (ret = data_get_continious(hash_data_find(request, userdata->key),   &free_key,   (void **)&key.data,   &key.size)) < 0){
+			if( (ret = data_make_flat(hash_data_find(request, userdata->key),  FORMAT(native),  &free_key,   (void **)&key.data,   &key.size)) < 0){
 				data_free(&free_key);
 				return ret;
 			}
@@ -311,7 +311,7 @@ static ssize_t leveldb_handler(machine_t *machine, request_t *request){ // {{{
 			
 			break;
 		case ACTION_DELETE:
-			if( (ret = data_get_continious(hash_data_find(request, userdata->key), &free_key, (void **)&key.data, &key.size)) < 0)
+			if( (ret = data_make_flat(hash_data_find(request, userdata->key), FORMAT(native), &free_key, (void **)&key.data, &key.size)) < 0)
 				return ret;
 			
 			ret = ldb_delete(userdata->db, &key);
